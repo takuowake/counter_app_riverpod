@@ -1,14 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final countProvider = StateProvider<int>((ref) => 0);
+final futureProvider = FutureProvider<int>((ref) async => Future.value(42));
+final streamProvider = StreamProvider<int>((ref) => Stream.periodic(Duration(seconds: 1), (x) => x));
+final stateNotifierProvider = StateNotifierProvider<CounterStateNotifier, int>((ref) => CounterStateNotifier());
+final changeNotifierProvider = ChangeNotifierProvider<CounterChangeNotifier>((ref) => CounterChangeNotifier());
+final combiningProvider = Provider<int>((ref) {
+  final stateNotifierCount = ref.watch(stateNotifierProvider);
+  final changeNotifierCount = ref.watch(changeNotifierProvider).count;
+  return stateNotifierCount + changeNotifierCount;
+});
+
+class CounterStateNotifier extends StateNotifier<int> {
+  CounterStateNotifier() : super(0);
+
+  void increment() => state++;
+}
+
+class CounterChangeNotifier extends ChangeNotifier {
+  int _count = 0;
+
+  int get count => _count;
+
+  void increment() {
+    _count++;
+    notifyListeners();
+  }
+}
 
 void main() {
   runApp(ProviderScope(child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +48,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends ConsumerStatefulWidget {
-  MyHomePage({super.key, required this.title});
+  MyHomePage({Key? key, required this.title}) : super(key: key);
   final String title;
 
   @override
@@ -31,7 +56,6 @@ class MyHomePage extends ConsumerStatefulWidget {
 }
 
 class _MyHomePageState extends ConsumerState<MyHomePage> {
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,22 +70,21 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
               'You have pushed the button this many times:',
             ),
             Text(
-              // '$_counter',
-              // style: Theme.of(context).textTheme.headlineMedium,
-              ref.watch(countProvider).toString(),
+              ref.watch(combiningProvider).toString(),
               style: Theme.of(context).textTheme.headline4,
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-            onPressed: () {
-              ref.watch(countProvider.state).state++;
-            },
-            tooltip: 'Increment',
-            child: const Icon(Icons.add),
-          )
-        // onPressed: _incrementCounter,
+        onPressed: () {
+          ref.read(stateNotifierProvider.notifier).increment();
+          ref.read(changeNotifierProvider).increment();
+        },
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
+
